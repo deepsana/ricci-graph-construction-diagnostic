@@ -1,0 +1,52 @@
+defaults:
+  - {name: knn_3, family: knn, params: {k: 3, coord_type: angular}}
+  - {name: radius_based, family: radius, params: {radius: 0.3}}
+  - {name: kt_threshold_quantile_p_pos1, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: 1}}
+  - {name: kt_threshold_quantile_p_neg1, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_quantile_p_zero, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: 0}}
+  - {name: laman_p_pos1, family: laman, params: {p: 1}}
+  - {name: laman_p_neg1, family: laman, params: {p: -1}}
+  - {name: laman_p_zero, family: laman, params: {p: 0}}
+  - {name: unique_3_p_pos1, family: unique_k, params: {k: 3, p: 1}}
+  - {name: unique_3_p_neg1, family: unique_k, params: {k: 3, p: -1}}
+  - {name: unique_3_p_zero, family: unique_k, params: {k: 3, p: 0}}
+  - {name: fully_connected, family: fully_connected, params: {}}
+
+sweep:
+  # kNN variants
+  - {name: knn_4, family: knn, params: {k: 4, coord_type: angular}}
+  - {name: knn_5, family: knn, params: {k: 5, coord_type: angular}}
+  - {name: knn_7, family: knn, params: {k: 7, coord_type: angular}}
+
+  # Radius variants
+  - {name: radius_based_r0p2, family: radius, params: {radius: 0.2}}
+  - {name: radius_based_r0p4, family: radius, params: {radius: 0.4}}
+  - {name: radius_based_r0p5, family: radius, params: {radius: 0.5}}
+
+  # kT threshold (p = -1)
+  - {name: kt_threshold_q0p4_p_neg1, family: kt_threshold, params: {quantile: 0.4, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_q0p6_p_neg1, family: kt_threshold, params: {quantile: 0.6, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_q0p7_p_neg1, family: kt_threshold, params: {quantile: 0.7, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_q0p8_p_neg1, family: kt_threshold, params: {quantile: 0.8, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_q0p9_p_neg1, family: kt_threshold, params: {quantile: 0.9, min_neighbors: 2, max_neighbors: 7, p: -1}}
+
+  # kT threshold (p = 1)
+  - {name: kt_threshold_q0p4_p_pos1, family: kt_threshold, params: {quantile: 0.4, min_neighbors: 2, max_neighbors: 7, p: 1}}
+  - {name: kt_threshold_q0p8_p_pos1, family: kt_threshold, params: {quantile: 0.8, min_neighbors: 2, max_neighbors: 7, p: 1}}
+  - {name: kt_threshold_q0p9_p_pos1, family: kt_threshold, params: {quantile: 0.9, min_neighbors: 2, max_neighbors: 7, p: 1}}
+
+  # kT threshold (p = 0)
+  - {name: kt_threshold_q0p4_p_zero, family: kt_threshold, params: {quantile: 0.4, min_neighbors: 2, max_neighbors: 7, p: 0}}
+  - {name: kt_threshold_q0p8_p_zero, family: kt_threshold, params: {quantile: 0.8, min_neighbors: 2, max_neighbors: 7, p: 0}}
+  - {name: kt_threshold_q0p9_p_zero, family: kt_threshold, params: {quantile: 0.9, min_neighbors: 2, max_neighbors: 7, p: 0}}
+
+  # kT threshold degree-cap sweep (q = 0.8, p = -1)
+  - {name: kt_threshold_q0p8_kmax5_p_neg1, family: kt_threshold, params: {quantile: 0.8, min_neighbors: 2, max_neighbors: 5, p: -1}}
+  - {name: kt_threshold_q0p8_kmax10_p_neg1, family: kt_threshold, params: {quantile: 0.8, min_neighbors: 2, max_neighbors: 10, p: -1}}
+
+  # Unique-k sweeps
+  - {name: unique_4_p_neg1, family: unique_k, params: {k: 4, p: -1}}
+  - {name: unique_5_p_neg1, family: unique_k, params: {k: 5, p: -1}}
+  - {name: unique_4_p_pos1, family: unique_k, params: {k: 4, p: 1}}
+  - {name: unique_4_p_zero, family: unique_k, params: {k: 4, p: 0}}
+  - {name: unique_5_p_zero, family: unique_k, params: {k: 5, p: 0}}

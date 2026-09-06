@@ -1,0 +1,25 @@
+defaults:
+  - {name: knn_3, family: knn, params: {k: 3}}
+  - {name: radius_bond, family: radius, params: {radius: 1.8}}
+  - {name: radius_3A, family: radius, params: {radius: 3.0}}
+  - {name: kt_threshold_quantile_p_pos1, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: 1}}
+  - {name: kt_threshold_quantile_p_neg1, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: -1}}
+  - {name: kt_threshold_quantile_p_zero, family: kt_threshold, params: {quantile: 0.5, min_neighbors: 2, max_neighbors: 7, p: 0}}
+  - {name: laman_p_pos1, family: laman, params: {p: 1}}
+  - {name: laman_p_neg1, family: laman, params: {p: -1}}
+  - {name: laman_p_zero, family: laman, params: {p: 0}}
+  - {name: unique_3_p_pos1, family: unique_k, params: {k: 3, p: 1}}
+  - {name: unique_3_p_neg1, family: unique_k, params: {k: 3, p: -1}}
+  - {name: unique_3_p_zero, family: unique_k, params: {k: 3, p: 0}}
+  - {name: fully_connected, family: fully_connected, params: {}}
+
+sweep:
+  - {name: knn_2, family: knn, params: {k: 2}}
+  - {name: knn_4, family: knn, params: {k: 4}}
+  - {name: knn_5, family: knn, params: {k: 5}}
+  - {name: radius_1p5, family: radius, params: {radius: 1.5}}
+  - {name: radius_2p5, family: radius, params: {radius: 2.5}}
+  - {name: radius_4A, family: radius, params: {radius: 4.0}}
+  - {name: unique_2_p_neg1, family: unique_k, params: {k: 2, p: -1}}
+  - {name: unique_4_p_neg1, family: unique_k, params: {k: 4, p: -1}}
+  - {name: unique_4_p_zero, family: unique_k, params: {k: 4, p: 0}}
