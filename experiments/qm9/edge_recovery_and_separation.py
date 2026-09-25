@@ -3,9 +3,13 @@ import numpy as np
 import pandas as pd
 from scipy.stats import kendalltau, spearmanr
 
-QM9_RESULTS_DIR = "/home/dshahi/projects/JetGraphs-RicciCurvature/results_qm9"
+from utils.local_paths import local_paths
+PATHS = local_paths()
+OUT_DIR = os.path.join(PATHS.RESULTS_ROOT, "qm9")
+
+QM9_RESULTS_DIR = OUT_DIR
 EDGE_RECOVERY_PATH = os.path.join(QM9_RESULTS_DIR, "edge_recovery_summary.csv")
-OUT_DIR = "/home/dshahi/projects/JetGraphs-RicciCurvature/resultsqm9-distributional_300000"
+
 SCORES_PATH = os.path.join(OUT_DIR, "w1-subsets-all-pairs-defaults", "scores_all_slices.csv")
 OUT_PATH = os.path.join(QM9_RESULTS_DIR, "spearman_f1_vs_separation.csv")
 RANKS_PATH = os.path.join(OUT_DIR, "spearman_f1_vs_separation_ranks.csv")
