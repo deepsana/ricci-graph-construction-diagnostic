@@ -8,15 +8,27 @@ import pandas as pd
 from experiments.qm9.config import CURVATURES, EDGE_COLS, NODE_COLS
 
 
+def append_group_columns(group, columns):
+    """
+    Append every dataset of an h5 group to columns; returns the row count
+    """
+    n_rows = 0
+    for column in group:
+        values = group[column][:]
+        n_rows = len(values)
+        columns.setdefault(column, []).append(values)
+    return n_rows
+
+
 def read_shard_file(job):
     """
     Read every molecule of one graph type from one shard file. Runs in a
-    worker process.
+    worker process, so it takes a single picklable argument.
 
     :param job: tuple (path, graph_type)
-    :return: tuple (node_cols, edge_cols, mol_rows), where the first two
-        map a column name to a list of per-molecule arrays and mol_rows is
-        a list of molecule attribute dicts
+    :return: tuple (node_cols, edge_cols, mol_rows), where the first two map
+        a column name to a list of per-molecule arrays and mol_rows is a list
+        of molecule attribute dicts
     """
     path, graph_type = job
     node_cols = {}
@@ -30,36 +42,24 @@ def read_shard_file(job):
             mol = group[mol_name]
             mol_id = int(mol.attrs["mol_id"])
 
-            node_group = mol["nodes"]
-            n_atoms = 0
-            for column in node_group:
-                values = node_group[column][:]
-                n_atoms = len(values)
-                node_cols.setdefault(column, []).append(values)
+            n_atoms = append_group_columns(mol["nodes"], node_cols)
             node_cols.setdefault("mol_id", []).append(np.full(n_atoms, mol_id, dtype=np.int64))
             # Without a node_id column, row order is atom order.
-            if "node_id" not in node_group:
+            if "node_id" not in mol["nodes"]:
                 node_cols.setdefault("node_id", []).append(np.arange(n_atoms, dtype=np.int64))
 
-            edge_group = mol["edges"]
-            if "src" in edge_group:
-                n_edges = 0
-                for column in edge_group:
-                    values = edge_group[column][:]
-                    n_edges = len(values)
-                    edge_cols.setdefault(column, []).append(values)
-                edge_cols.setdefault("mol_id", []).append( np.full(n_edges, mol_id, dtype=np.int64))
+            # A molecule without src has no edges in this construction.
+            if "src" in mol["edges"]:
+                n_edges = append_group_columns(mol["edges"], edge_cols)
+                edge_cols.setdefault("mol_id", []).append(np.full(n_edges, mol_id, dtype=np.int64))
 
-            attributes = {}
-            for key in mol.attrs:
-                attributes[key] = mol.attrs[key]
-            mol_rows.append(attributes)
+            mol_rows.append(dict(mol.attrs))
     return node_cols, edge_cols, mol_rows
 
 
 def columns_to_frame(columns):
     """
-    Concatenate the per molecule arrays of every column into one DataFrame.
+    Concatenate the per-molecule arrays of every column into one DataFrame.
 
     :param columns: {column name: list of arrays} from read_shard_file
     :return: DataFrame, empty if columns is empty
@@ -67,19 +67,11 @@ def columns_to_frame(columns):
     if not columns:
         return pd.DataFrame()
 
-    lengths = {}
-    for name in columns:
-        total = 0
-        for values in columns[name]:
-            total += len(values)
-        lengths[name] = total
+    lengths = {name: sum(len(values) for values in arrays) for name, arrays in columns.items()}
     if len(set(lengths.values())) != 1:
         raise SystemExit(f"FATAL: shard columns have different total lengths -- some molecules lack a column that others have: {lengths}")
 
-    joined = {}
-    for name in columns:
-        joined[name] = np.concatenate(columns[name])
-    df = pd.DataFrame(joined)
+    df = pd.DataFrame({name: np.concatenate(arrays) for name, arrays in columns.items()})
 
     # h5py returns strings as bytes.
     for name in df.columns:
@@ -90,54 +82,66 @@ def columns_to_frame(columns):
     return df
 
 
-def load_shards(file_list, graph_types, n_workers=1, max_files=None):
+def run_jobs(jobs, n_workers):
     """
-    Read the shards into one set of tables per graph type. Every
-    (file, graph type) pair is a separate job in one worker pool.
+    Results of read_shard_file for every job, in job order
+    """
+    start_time = time.time()
+    results = []
+    if n_workers > 1 and len(jobs) > 1:
+        with Pool(min(n_workers, len(jobs))) as pool:
+            # imap keeps the results in job order.
+            for job_number, result in enumerate(pool.imap(read_shard_file, jobs), start=1):
+                results.append(result)
+                if job_number % 25 == 0 or job_number == len(jobs):
+                    print(f"  {job_number}/{len(jobs)} jobs done ({time.time() - start_time:.0f} s)", flush=True)
+    else:
+        for job_number, job in enumerate(jobs, start=1):
+            results.append(read_shard_file(job))
+            print(f"  {job_number}/{len(jobs)} jobs done ({time.time() - start_time:.0f} s)", flush=True)
+    return results
 
-    :param file_list: shard paths
-    :param graph_types: constructions to read from each shard
-    :param n_workers: worker processes; 1 runs everything in this process
+
+def harmonize_columns(nodes, edges):
+    """
+    Accept both shard writer conventions: is_hydrogen from Z, and edge curvature columns named like the node ones.
+    """
+    if "is_hydrogen" not in nodes.columns and "Z" in nodes.columns:
+        nodes["is_hydrogen"] = nodes["Z"] == 1
+    for curvature in CURVATURES:
+        node_name = f"{curvature}_curvature"
+        edge_name = f"{curvature}_edge_curvature"
+        if edge_name not in edges.columns and node_name in edges.columns:
+            edges = edges.rename(columns={node_name: edge_name})
+    if len(edges) > 0:
+        edges["src"] = edges["src"].astype(int)
+        edges["dst"] = edges["dst"].astype(int)
+    return nodes, edges
+
+
+def load_shards(file_list, graph_types, n_workers, max_files):
+    """
+    Read the shards into one set of tables per graph type. Every (file, graph type) pair is a separate job in one worker pool
+
+    :param n_workers: worker processes; 1 reads everything in this process
     :param max_files: only read this many files, or None for all
     :return: {graph_type: {"nodes": df, "edges": df, "mols": df}}
     """
     if max_files is not None:
         file_list = file_list[:max_files]
-
-    jobs = []
-    for graph_type in graph_types:
-        for path in file_list:
-            jobs.append((path, graph_type))
+    jobs = [(path, graph_type) for graph_type in graph_types for path in file_list]
 
     start_time = time.time()
-    n_processes = min(n_workers, len(jobs))
-    print(f"reading {len(file_list)} files x {len(graph_types)} graph types = {len(jobs)} jobs on {n_processes} workers", flush=True)
+    print(f"reading {len(file_list)} files x {len(graph_types)} graph types = {len(jobs)} jobs on {min(n_workers, len(jobs))} workers", flush=True)
+    results = run_jobs(jobs, n_workers)
 
-    results = []
-    if n_workers > 1 and len(jobs) > 1:
-        with Pool(n_processes) as pool:
-            # imap returns the results in job order.
-            for job_number, result in enumerate(pool.imap(read_shard_file, jobs), start=1):
-                results.append(result)
-                if job_number % 25 == 0 or job_number == len(jobs):
-                    elapsed = time.time() - start_time
-                    print(f"  {job_number}/{len(jobs)} jobs done ({elapsed:.0f} s)", flush=True)
-    else:
-        for job_number, job in enumerate(jobs, start=1):
-            results.append(read_shard_file(job))
-            elapsed = time.time() - start_time
-            print(f"{job_number}/{len(jobs)} jobs done ({elapsed:.0f} s)", flush=True)
-
-    grouped = {}
-    for graph_type in graph_types:
-        grouped[graph_type] = {"nodes": {}, "edges": {}, "mols": []}
-    for job, result in zip(jobs, results):
-        target = grouped[job[1]]
-        job_nodes, job_edges, job_mols = result
-        for name in job_nodes:
-            target["nodes"].setdefault(name, []).extend(job_nodes[name])
-        for name in job_edges:
-            target["edges"].setdefault(name, []).extend(job_edges[name])
+    grouped = {graph_type: {"nodes": {}, "edges": {}, "mols": []} for graph_type in graph_types}
+    for (_, graph_type), (job_nodes, job_edges, job_mols) in zip(jobs, results):
+        target = grouped[graph_type]
+        for name, arrays in job_nodes.items():
+            target["nodes"].setdefault(name, []).extend(arrays)
+        for name, arrays in job_edges.items():
+            target["edges"].setdefault(name, []).extend(arrays)
         target["mols"].extend(job_mols)
 
     data_dict = {}
@@ -150,19 +154,8 @@ def load_shards(file_list, graph_types, n_workers=1, max_files=None):
             edges = columns_to_frame(parts["edges"])
         else:
             edges = pd.DataFrame(columns=["mol_id", "src", "dst"])
+        nodes, edges = harmonize_columns(nodes, edges)
         mols = pd.DataFrame(parts["mols"])
-
-        # Accept both writer conventions.
-        if "is_hydrogen" not in nodes.columns and "Z" in nodes.columns:
-            nodes["is_hydrogen"] = nodes["Z"] == 1
-        for curvature in CURVATURES:
-            node_name = f"{curvature}_curvature"
-            edge_name = f"{curvature}_edge_curvature"
-            if edge_name not in edges.columns and node_name in edges.columns:
-                edges = edges.rename(columns={node_name: edge_name})
-        if len(edges) > 0:
-            edges["src"] = edges["src"].astype(int)
-            edges["dst"] = edges["dst"].astype(int)
 
         data_dict[graph_type] = {"nodes": nodes, "edges": edges, "mols": mols}
         print(f"{graph_type}: {len(mols)} molecules, {len(nodes)} atoms, {len(edges)} edges", flush=True)
@@ -170,38 +163,39 @@ def load_shards(file_list, graph_types, n_workers=1, max_files=None):
     return data_dict
 
 
+def missing_columns(nodes, edges):
+    return ([col for col in NODE_COLS if col not in nodes.columns]
+            + [col for col in EDGE_COLS if col not in edges.columns])
+
+
+def truth_flags(tables):
+    """Per-molecule labels_ok flags indexed by mol_id, or None if no table has them."""
+    if "mols" in tables and "labels_ok" in tables["mols"].columns:
+        return tables["mols"].set_index("mol_id")
+    if "labels_ok" in tables["nodes"].columns:
+        return tables["nodes"].drop_duplicates("mol_id").set_index("mol_id")
+    return None
+
+
 def check_truth_columns(data_dict):
     """
-    Check that the truth and curvature columns survived serialization and
+    Check that the truth and curvature columns survived serialization, and
     drop the molecules whose truth lookup failed (labels_ok != 1).
 
-    :param data_dict: {graph_type: {"nodes": df, "edges": df, "mols": df}}
     :return: the same dict, with the failed molecules removed in place
     """
-    for graph_type in data_dict:
-        tables = data_dict[graph_type]
+    for graph_type, tables in data_dict.items():
         nodes = tables["nodes"]
         edges = tables["edges"]
 
-        missing = []
-        for col in NODE_COLS:
-            if col not in nodes.columns:
-                missing.append(col)
-        for col in EDGE_COLS:
-            if col not in edges.columns:
-                missing.append(col)
+        missing = missing_columns(nodes, edges)
         if missing:
             raise SystemExit(
-                f"FATAL [{graph_type}]: shard tables are missing {missing}. Were the graphs "
-                f"written after attach_true_labels() and the curvature pass? Node columns present: {list(nodes.columns)}; edge columns present: {list(edges.columns)}")
+                f"FATAL [{graph_type}]: shard tables are missing {missing}. Were the graphs written after attach_true_labels() and the curvature pass? Node columns present: {list(nodes.columns)}; edge columns present: {list(edges.columns)}")
 
-        if "mols" in tables and "labels_ok" in tables["mols"].columns:
-            flags = tables["mols"].set_index("mol_id")
-        elif "labels_ok" in nodes.columns:
-            flags = nodes.drop_duplicates("mol_id").set_index("mol_id")
-        else:
-            print(f"[{graph_type}] WARNING: no labels_ok anywhere -- cannot drop molecules "
-                  f"whose truth lookup failed; their sentinels will contaminate chain_nodes / nonbond_edges", flush=True)
+        flags = truth_flags(tables)
+        if flags is None:
+            print(f"[{graph_type}] WARNING: no labels_ok anywhere -- cannot drop molecules whose truth lookup failed; their sentinels will contaminate chain_nodes / nonbond_edges", flush=True)
             continue
 
         n_before = nodes["mol_id"].nunique()
@@ -221,11 +215,10 @@ def check_truth_columns(data_dict):
     return data_dict
 
 
-def load_qm9(graph_types, shard_glob, n_workers=1, max_files=None):
+def load_qm9(graph_types, shard_glob, n_workers, max_files):
     """
-    Load the QM9 shards, check their columns and drop failed molecules.
+    Load the QM9 shards, check their columns and drop failed molecules
 
-    :param graph_types: constructions to load
     :param shard_glob: glob pattern matching the shard files
     :param n_workers: worker processes for reading
     :param max_files: only read this many files, or None for all
@@ -237,4 +230,5 @@ def load_qm9(graph_types, shard_glob, n_workers=1, max_files=None):
     print(f"{len(files)} shard files match {shard_glob}", flush=True)
     data_dict = load_shards(files, graph_types, n_workers, max_files)
     return check_truth_columns(data_dict)
+
 

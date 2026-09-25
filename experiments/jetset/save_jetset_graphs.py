@@ -15,8 +15,8 @@ import traceback
 import multiprocessing
 import concurrent.futures
 import time
-from data import read_single_jet_from_jetset
-from src.graphs import construct_graphs, DEFAULT_GRAPH_TYPES, SWEEP_GRAPH_TYPES
+from jetset_data import read_single_jet_from_jetset
+from src.jetset_graphs import construct_graphs, DEFAULT_GRAPH_TYPES, SWEEP_GRAPH_TYPES
 from src.ricci_curvature import forman_ricci_curvature, ollivier_ricci_curvature
 
 seed = 44

@@ -19,9 +19,14 @@ from utils.diminishing_returns_deep_models import (
     train_and_score,
 )
 
-SHARD_GLOB = "/media/mule/scratch/dshahi/qm9/graphs/temp_train/all_train_*.h5"
-VALID_GLOB = "/media/mule/scratch/dshahi/qm9/graphs/temp_valid/all_valid_*.h5"
-OUT_DIR = "/home/dshahi/projects/JetGraphs-RicciCurvature/results_qm9/"
+from utils.local_paths import local_paths
+
+PATHS = local_paths()
+SHARD_ROOT = PATHS.QM9_SHARD_GLOB
+VALID_ROOT = PATHS.QM9_VALID_GLOB
+CACHE_ROOT = PATHS.QM9_CACHE_DIR
+OUT_DIR = os.path.join(PATHS.RESULTS_ROOT, "qm9")
+
 CSV_PATH = os.path.join(OUT_DIR, "diminishing_returns_qm9.csv")
 PER_SEED_CSV = os.path.join(OUT_DIR, "qm9_deep_per_seed.csv")
 PAIRED_CSV = os.path.join(OUT_DIR, "qm9_deep_paired_stats.csv")
