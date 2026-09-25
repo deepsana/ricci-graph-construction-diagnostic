@@ -19,7 +19,15 @@ from src.qm9_graphs import read_qm9_xyz, construct_graphs, TARGET_NAMES, DEFAULT
 from src.qm9_true_bonds import load_sdf_bonds
 from src.ricci_curvature import forman_ricci_curvature, ollivier_ricci_curvature
 
-SDF_PATH = "/media/mule/scratch/dshahi/qm9/qm9/gdb9.sdf"
+from utils.local_paths import local_paths
+PATHS = local_paths()
+SDF_PATH = os.path.join(PATHS.QM9_DOWNLAODED_DATA, "qm9", "gdb9.sdf")
+
+# this is where the data is 
+INPUT_DIR = PATHS.QM9_DOWNLAODED_DATA
+OUT_DIR = PATHS.QM9_SHARD_GLOB
+VERIFIED_IDS_PATH = os.path.join(PATHS.QM9_DOWNLAODED_DATA, "qm9", "verified_mol_ids.txt")
+
 seed = 44
 np.random.seed(seed)
 random.seed(seed)
@@ -540,9 +548,7 @@ if __name__ == '__main__':
     if len(graph_types) == 0:
         raise SystemExit("FATAL: no graph types loaded. Stopping.")
 
-    INPUT_DIR = "/media/mule/scratch/dshahi/qm9"
-    OUT_DIR = "/media/mule/scratch/dshahi/qm9/graphs/"
-    VERIFIED_IDS_PATH = "/media/mule/scratch/dshahi/qm9/verified_mol_ids.txt"
+   
 
     SPLIT_FRACTIONS = {"train": 0.8, "valid": 0.1, "test": 0.1}
 
