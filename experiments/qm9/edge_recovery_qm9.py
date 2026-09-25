@@ -10,9 +10,18 @@ from rdkit import Chem
 
 from src.qm9_graphs import ALL_GRAPH_TYPES, ATOM_MASS, ATOM_Z, DROP_HYDROGENS, GRAPH_CONFIGS
 
-SDF_PATH = "/media/mule/scratch/dshahi/qm9/qm9/gdb9.sdf"
-VERIFIED_IDS_PATH = "/media/mule/scratch/dshahi/qm9/verified_mol_ids.txt"
-RESULTS_DIR = "/home/dshahi/projects/JetGraphs-RicciCurvature/results_qm9"
+
+from utils.local_paths import local_paths
+PATHS = local_paths()
+
+
+# this is where the data is 
+INPUT_DIR = PATHS.QM9_DOWNLAODED_DATA
+OUT_DIR = PATHS.QM9_SHARD_GLOB
+SDF_PATH = os.path.join(PATHS.QM9_DOWNLAODED_DATA, "qm9", "gdb9.sdf")
+VERIFIED_IDS_PATH = os.path.join(PATHS.QM9_DOWNLAODED_DATA, "qm9", "verified_mol_ids.txt")
+
+RESULTS_DIR = PATHS.RESULTS_ROOT
 OUT_PATH = os.path.join(RESULTS_DIR, "edge_recovery.csv")
 SUMMARY_PATH = os.path.join(RESULTS_DIR, "edge_recovery_summary.csv")
 FALSE_PAIRS_PATH = os.path.join(RESULTS_DIR, "edge_recovery_false_pairs.csv")
