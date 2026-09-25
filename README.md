@@ -5,6 +5,13 @@ pip install -r requirements.txt
 
 Edit `paths.py`: the JetSet shard root, the QM9 shard glob, where the JetSet cache goes, and where results go. `paths.py` 
 
+## DataSet used are:
+1. JetSet
+   We used `mc-flavtag-ttbar-small.h5` and subsampled with seed=0 to 300K for training and 50K for testing  
+   ATLAS collaboration (2025). ATLAS tt¯ simulation for ML-based jet flavour tagging (JetSet). CERN Open Data Portal.                           DOI:10.7483/OPENDATA.ATLAS.QG8W.TO8P : <https://opendata.cern.ch/record/93940>
+2. QM9  MoleculeNet: A Benchmark for Molecular Machine Learning" <https://arxiv.org/abs/1703.00564>
+   <https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/molnet_publish/qm9.zip> from                                                       <https://pytorchgeometric.readthedocs.io/en/2.6.1/_modules/torch_geometric/datasets/qm9.html#QM9>
+
 ## Save graphs first
 python -m experiments.jetset.save_jetset_graphs.py
 python -m experiments.qm9.save_qm9_graphs.py
@@ -69,4 +76,7 @@ python -m experiments.jetset.run_jetset_degree_control
 
 The first JetSet run intersects the shard families, freezes the subsample of jets to `<JETSET_CACHE_DIR>/kept_train_jet_ids_<size>_seed<seed>.npy`
 So need to delete the cache directory to rerun larger data
+
+
+
 
