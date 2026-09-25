@@ -38,9 +38,12 @@ For the jets it is averaged over the flavor pairs.
 Conditioning on a variable splits the point clouds into bins and gives
 
 ```
-S_sep_cond    = sum_b w_b W1(A_b, B_b) / sum_b w_b
+S_sep_cond    = \sum_b w_b W1(A_b, B_b) / sum_b w_b
+
 S_sep_kept    = W1(concat_b A_b, concat_b B_b)
+
 preserved_sep = S_sep_cond / S_sep_kept
+
 share         = 1 - preserved_sep
 ```
 
