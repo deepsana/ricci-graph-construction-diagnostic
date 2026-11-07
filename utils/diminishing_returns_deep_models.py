@@ -20,7 +20,8 @@ def build_padded_tensors(nodes_df, feature_cols, jet_col="jet_id", label_col=Non
              mask (n_jets, max_nodes) 1 = real track 0 = padding,
              y (n_jets,) or None, jet_ids (n_jets,)
     '''
-    nodes_df = nodes_df.sort_values([jet_col])
+    #nodes_df = nodes_df.sort_values([jet_col])
+    nodes_df = nodes_df.sort_values([jet_col], kind="stable")
     grouped = nodes_df.groupby(jet_col, sort=True)
 
     jet_ids = np.array(list(grouped.groups.keys()))
