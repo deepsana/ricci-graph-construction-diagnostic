@@ -1,13 +1,14 @@
 import os
 import time
 
-from experiments.jetset.config import (COND_GRAPH_TYPES, EDGE_SPECS, FLAVORS, GRAPH_TYPES, JOINT_COND, MAX_TRAIN_JETS, MIN_JETS_PER_BIN,
+from experiments.jetset.config import (COND_GRAPH_TYPES, CURVATURES, EDGE_SPECS, FLAVORS, GRAPH_TYPES, JOINT_COND, MAX_TRAIN_JETS, MIN_JETS_PER_BIN,
     MIN_VALUES_PER_SIDE, MULT_BINS, NODE_SPECS, OUT_DIR, PAIR_FLAVORS, SUBSAMPLE_SEED, SV_BINS, SVFRAC_BINS, WITHIN_COMPARISONS, WITHIN_PAIR_LABEL,)
 from experiments.jetset.constructions import duplicate_free, register_duplicates
 from experiments.jetset.distributions import collect_binned_distributions, cond_bin_labels, flavor_by_jet, per_jet_bin
 from experiments.jetset.jets import get_kept_ids
 from experiments.jetset.loading import drop_graph_types, load_kept_jets
 from utils import bootstrap as bs
+from utils.graph_descriptors import DESCRIPTORS, add_graph_descriptors
 from utils.tables import SCORE_KEYS, SEP_COL
 
 N_BOOT = 500
@@ -119,6 +120,9 @@ def main():
 
     kept_ids = get_kept_ids("train", MAX_TRAIN_JETS, SUBSAMPLE_SEED)
     train_dict = load_kept_jets(kept_ids)
+    # Degree, triangle and clustering columns, as in run_scores.py.
+    if any(descriptor in CURVATURES for descriptor in DESCRIPTORS):
+        train_dict = add_graph_descriptors(train_dict, GRAPH_TYPES, "jet_id")
     # The duplicate check reads the curvatures, so the jets come first.
     register_duplicates(train_dict, GRAPH_TYPES)
     graphs = duplicate_free(COND_GRAPH_TYPES)
@@ -129,7 +133,7 @@ def main():
         print("[cfg] GRAPHS is set: trial run, the score CSVs are left alone", flush=True)
     if not graphs:
         raise SystemExit("no construction to bootstrap; check GRAPHS against COND_GRAPH_TYPES")
-    print(f"[cfg] B={N_BOOT}, seed={SEED}, {len(graphs)} constructions, passes={PASSES}", flush=True)
+    print(f"[cfg] B={N_BOOT}, seed={SEED}, {len(graphs)} constructions, passes={PASSES}, descriptors={CURVATURES}", flush=True)
 
     train_dict = drop_graph_types(train_dict, graphs)
     graphs = bs.select_graphs(graphs, train_dict)
@@ -169,4 +173,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

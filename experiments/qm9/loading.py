@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from experiments.qm9.config import CURVATURES, EDGE_COLS, NODE_COLS
+from experiments.qm9.config import EDGE_COLS, NODE_COLS, SHARD_CURVATURES
 
 
 def append_group_columns(group, columns):
@@ -108,7 +108,7 @@ def harmonize_columns(nodes, edges):
     """
     if "is_hydrogen" not in nodes.columns and "Z" in nodes.columns:
         nodes["is_hydrogen"] = nodes["Z"] == 1
-    for curvature in CURVATURES:
+    for curvature in SHARD_CURVATURES:
         node_name = f"{curvature}_curvature"
         edge_name = f"{curvature}_edge_curvature"
         if edge_name not in edges.columns and node_name in edges.columns:
@@ -230,5 +230,6 @@ def load_qm9(graph_types, shard_glob, n_workers, max_files):
     print(f"{len(files)} shard files match {shard_glob}", flush=True)
     data_dict = load_shards(files, graph_types, n_workers, max_files)
     return check_truth_columns(data_dict)
+
 
 

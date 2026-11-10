@@ -14,6 +14,7 @@ from experiments.qm9.distributions import analyze_across_construction
 from experiments.qm9.loading import load_qm9
 from experiments.qm9.scores import run_conditioned_scores, score_slice
 from plotting.conditioned import plot_share
+from utils.graph_descriptors import DESCRIPTORS, add_graph_descriptors, degree_vs_curvature_table
 from utils.tables import SEP_COL, save_csv, share_table
 
 CONDITIONING_PASSES = [
@@ -32,7 +33,10 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
 
     data_dict = load_qm9(GRAPH_TYPES, SHARD_GLOB, N_WORKERS, MAX_FILES)
-    print(f"loaded in {round(time.time() - start_time, 1)} s")
+    print(f"loaded in {round(time.time() - start_time, 1)} s; descriptors {CURVATURES}")
+    # Degree, triangle and clustering columns, read off the loaded edge tables.
+    if any(descriptor in CURVATURES for descriptor in DESCRIPTORS):
+        data_dict = add_graph_descriptors(data_dict, GRAPH_TYPES, "mol_id")
 
     tables = analyze_across_construction(data_dict, GRAPH_TYPES)
     across_graphs_nodes, across_graphs_edges, across_subsets_nodes, across_subsets_edges = tables
@@ -61,6 +65,7 @@ def main():
 
     all_scores_df = pd.concat(all_rows, ignore_index=True)
     save_csv(all_scores_df, OUT_DIR, "scores_all_slices.csv")
+    degree_vs_curvature_table(all_scores_df, CURVATURES, OUT_DIR)
 
     share_frames = []
     for cond_var, bins in CONDITIONING_PASSES:
@@ -82,4 +87,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

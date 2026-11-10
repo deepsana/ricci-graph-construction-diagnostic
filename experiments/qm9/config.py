@@ -31,14 +31,15 @@ MIN_MOLS_PER_BIN = 200
 MIN_VALUES_PER_DIST = 50
 
 # FRC on the complete graph equals n, which would dominate every other
-# construction's sensitivity average.
-EXCLUDE_FC_FROM_SENS_FOR = {"frc"}
+# construction's sensitivity average; degree (n - 1) and triangle count
+# ((n - 1)(n - 2) / 2) are size alone there too.
+EXCLUDE_FC_FROM_SENS_FOR = {"frc", "deg", "tri"}
 FC_GRAPH = "fully_connected"
 # Skip the across-construction W1 (the M^2 stage) and S_sens. S_sep, the
 # share and the unconditioned scores do not use it.
 SKIP_SENSITIVITY = True
 
-NODE_SUBSETS = ["all_nodes","H_nodes", "heavy_nodes", "ring_nodes", "chain_nodes" "terminal_nodes", "branch_nodes"]
+NODE_SUBSETS = ["all_nodes","H_nodes", "heavy_nodes", "ring_nodes", "chain_nodes", "terminal_nodes", "branch_nodes"]
 EDGE_SUBSETS = ["all_edges","bond_edges", "nonbond_edges", "HH_edges", "Hheavy_edges", "heavyheavy_edges"]
 SUBSET_PAIRS = {
     "H_vs_heavy": ("H_nodes", "heavy_nodes"),
@@ -64,7 +65,14 @@ SEP_POOL = {
     "all_nodes": NODE_COMPARISONS,
     "all_edges": EDGE_COMPARISONS,
 }
-CURVATURES = ["orc", "frc"]
+# Descriptors scored by the pipeline: ORC, FRC, and the node degree, triangle
+# count and clustering coefficient under the construction
+# (utils/graph_descriptors.py). Set to ["orc", "frc"] for the curvature-only run.
+CURVATURES = ["orc", "frc", "deg", "tri", "clu"]
+# The descriptors stored in the shards; the others are computed after loading.
+SHARD_CURVATURES = ["orc", "frc"]
+NODE_DESC_COLS = {c: f"{c}_curvature" for c in CURVATURES}
+EDGE_DESC_COLS = {c: f"{c}_edge_curvature" for c in CURVATURES}
 AGGREGATIONS = ["union", "per_mol_mean"]
 AGGREGATION_SUFFIX = {"union": "", "per_mol_mean": "_mean"}
 
@@ -77,7 +85,7 @@ def dist_key(subset, curvature, aggregation):
     Key of one distribution, e.g. "ring_nodes_orc_mean".
 
     :param subset: subset name
-    :param curvature: "orc" or "frc"
+    :param curvature: a descriptor of CURVATURES
     :param aggregation: "union" or "per_mol_mean"
     :return: the distribution key
     """
@@ -115,4 +123,5 @@ def build_specs(subsets):
 
 NODE_SPECS = build_specs(NODE_SUBSETS)
 EDGE_SPECS = build_specs(EDGE_SUBSETS)
+
 

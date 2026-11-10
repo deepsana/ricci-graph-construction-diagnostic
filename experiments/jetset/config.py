@@ -1,6 +1,6 @@
 import os
 
-from src.graphs import DEFAULT_GRAPH_TYPES, SWEEP_GRAPH_TYPES
+from src.jetset_graphs import DEFAULT_GRAPH_TYPES, SWEEP_GRAPH_TYPES
 from utils.local_paths import local_paths
 
 PATHS = local_paths()
@@ -66,7 +66,13 @@ MIN_VALUES_PER_SIDE = 50
 FLAVORS = [0, 4, 5, 15]
 FLAVOR_NAMES = {0: "light", 4: "c", 5: "b", 15: "tau"}
 FLAVORPAIR_LABELS = ["b_vs_light", "c_vs_light", "tau_vs_light"]
-CURVATURES = ["orc", "frc"]
+# Descriptors scored by the pipeline: ORC, FRC, and the node degree, triangle
+# count and clustering coefficient under the construction
+# (utils/graph_descriptors.py). Set to ["orc", "frc"] for the curvature-only run.
+CURVATURES = ["orc", "frc", "deg", "tri", "clu"]
+# Column of each descriptor in the node and edge tables.
+NODE_DESC_COLS = {c: f"{c}_curvature" for c in CURVATURES}
+EDGE_DESC_COLS = {c: f"{c}_edge_curvature" for c in CURVATURES}
 AGGREGATIONS = ["union", "per_jet_mean"]
 NODE_COMPARISONS = ["PV_nodes", "SV_nodes"]
 EDGE_COMPARISONS = ["PVPV_edges", "SVSV_edges", "PVSV_edges"]
@@ -108,31 +114,17 @@ PAIR_COLOR_IDX = {
 }
 
 # (comparison, distribution key, curvature, aggregation). A key reads
-# <subset tag>_<curvature>, with a _mean suffix for the per-jet mean.
-NODE_SPECS = [
-    ("PV_nodes", "pv_orc", "orc", "union"),
-    ("PV_nodes", "pv_orc_mean", "orc", "per_jet_mean"),
-    ("PV_nodes", "pv_frc", "frc", "union"),
-    ("PV_nodes", "pv_frc_mean", "frc", "per_jet_mean"),
-    ("SV_nodes", "sv_orc", "orc", "union"),
-    ("SV_nodes", "sv_orc_mean", "orc", "per_jet_mean"),
-    ("SV_nodes", "sv_frc", "frc", "union"),
-    ("SV_nodes", "sv_frc_mean", "frc", "per_jet_mean"),
-]
-EDGE_SPECS = [
-    ("PVPV_edges", "pvpv_orc", "orc", "union"),
-    ("PVPV_edges", "pvpv_orc_mean", "orc", "per_jet_mean"),
-    ("PVPV_edges", "pvpv_frc", "frc", "union"),
-    ("PVPV_edges", "pvpv_frc_mean", "frc", "per_jet_mean"),
-    ("SVSV_edges", "svsv_orc", "orc", "union"),
-    ("SVSV_edges", "svsv_orc_mean", "orc", "per_jet_mean"),
-    ("SVSV_edges", "svsv_frc", "frc", "union"),
-    ("SVSV_edges", "svsv_frc_mean", "frc", "per_jet_mean"),
-    ("PVSV_edges", "pvsv_orc", "orc", "union"),
-    ("PVSV_edges", "pvsv_orc_mean", "orc", "per_jet_mean"),
-    ("PVSV_edges", "pvsv_frc", "frc", "union"),
-    ("PVSV_edges", "pvsv_frc_mean", "frc", "per_jet_mean"),
-]
+# <subset tag>_<curvature>, with a _mean suffix for the per-jet mean,
+# e.g. ("PV_nodes", "pv_orc_mean", "orc", "per_jet_mean").
+NODE_SPECS = []
+EDGE_SPECS = []
+for _specs, _comparison, _tag in (
+        (NODE_SPECS, "PV_nodes", "pv"), (NODE_SPECS, "SV_nodes", "sv"),
+        (EDGE_SPECS, "PVPV_edges", "pvpv"), (EDGE_SPECS, "SVSV_edges", "svsv"),
+        (EDGE_SPECS, "PVSV_edges", "pvsv")):
+    for _curvature in CURVATURES:
+        for _suffix, _aggregation in (("", "union"), ("_mean", "per_jet_mean")):
+            _specs.append((_comparison, f"{_tag}_{_curvature}{_suffix}", _curvature, _aggregation))
 # All tracks ("all") and all edges ("alle") of a jet.
 for _curvature in CURVATURES:
     for _suffix, _aggregation in (("", "union"), ("_mean", "per_jet_mean")):
@@ -198,4 +190,5 @@ SWEEP_AXES = [
     (("laman", "unique_k"), "k", "$k$ (Unique-$k$; Laman at $k=2$)"),
 ]
 KMAX_MARKERS = {5: "v", 10: "^"}
+
 

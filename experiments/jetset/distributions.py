@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import wasserstein_distance
 
-from experiments.jetset.config import AGGREGATIONS, ALL_UNION, CURVATURES, DIST_KEYS, EDGE_SPECS, EDGE_TAGS, JOINT_COND, MIN_JETS_PER_BIN,MIN_VALUES_PER_SIDE, NODE_SPECS, PROGRESS_EVERY, SPEC_KEY, WITHIN_COMPARISONS
+from experiments.jetset.config import AGGREGATIONS, ALL_UNION, CURVATURES, DIST_KEYS, EDGE_DESC_COLS, EDGE_SPECS, EDGE_TAGS, NODE_DESC_COLS, JOINT_COND, MIN_JETS_PER_BIN,MIN_VALUES_PER_SIDE, NODE_SPECS, PROGRESS_EVERY, SPEC_KEY, WITHIN_COMPARISONS
 from utils.binning import bin_labels_of, bin_series, joint_bin_labels, joint_bin_series
 from utils.memory import rss_gb
 from utils.wassertein1_parallel import _endpoint_vertices, classify_edges
@@ -93,23 +93,23 @@ def per_jet_bin(nodes, cond_var, bins):
 
 def fill_cell(cell, tag, rows, means_only=False, keep_ids=False):
     """
-    Store the distributions of one (subset, cell) in place: every ORC and FRC
-    value, and one mean per jet of each. With keep_ids, the jet id of every
-    value is stored next to it (<tag>_ids, <tag>_ids_mean) so the bootstrap
-    can resample by jet.
+    Store the distributions of one (subset, cell) in place: every value of
+    every descriptor in CURVATURES, and one mean per jet of each. With
+    keep_ids, the jet id of every value is stored next to it (<tag>_ids,
+    <tag>_ids_mean) so the bootstrap can resample by jet.
 
     :param cell: data_binned[graph][flavor][bin]
     :param tag: subset tag, "pv", "sv", "pvpv", "svsv", "pvsv", "all" or "alle"
-    :param rows: rows of this subset and cell with jet_id, orc and frc columns
+    :param rows: rows of this subset and cell with jet_id and one column per descriptor
     :param means_only: store only the per-jet means
     """
     if not means_only:
-        cell[f"{tag}_orc"] = rows["orc"].to_numpy(dtype=np.float32, copy=True)
-        cell[f"{tag}_frc"] = rows["frc"].to_numpy(dtype=np.float32, copy=True)
+        for curvature in CURVATURES:
+            cell[f"{tag}_{curvature}"] = rows[curvature].to_numpy(dtype=np.float32, copy=True)
 
-    jet_means = rows.groupby("jet_id", sort=True)[["orc", "frc"]].mean()
-    cell[f"{tag}_orc_mean"] = jet_means["orc"].to_numpy(dtype=np.float32, copy=True)
-    cell[f"{tag}_frc_mean"] = jet_means["frc"].to_numpy(dtype=np.float32, copy=True)
+    jet_means = rows.groupby("jet_id", sort=True)[CURVATURES].mean()
+    for curvature in CURVATURES:
+        cell[f"{tag}_{curvature}_mean"] = jet_means[curvature].to_numpy(dtype=np.float32, copy=True)
 
     if keep_ids:
         jets = rows["jet_id"].to_numpy(copy=True)
@@ -177,22 +177,28 @@ def fill_cells(graph_cells, frame, class_col, class_tags, pooled_tag, bin_labels
             fill_cell(graph_cells[int(flavor)][label], class_tags[int(row_class)], rows, keep_ids=keep_ids)
 
 
-def binned_frame(table, class_col, row_class, orc_col, frc_col, jet_bin_code, flavors):
+def binned_frame(table, class_col, row_class, desc_cols, jet_bin_code, flavors):
     """
     Compact frame of the rows of a node or edge table that fall in a bin and
     belong to a scored flavor.
 
     :param row_class: class code of every row (node: PV/SV, edge: PV-PV/SV-SV/PV-SV)
+    :param desc_cols: {descriptor: column in table}, NODE_DESC_COLS or EDGE_DESC_COLS
     :param jet_bin_code: bin index of every jet, -1 outside every bin
     """
-    frame = pd.DataFrame({
+    missing = [col for col in desc_cols.values() if col not in table.columns]
+    if missing:
+        raise SystemExit(f"FATAL: columns {missing} missing; call "
+                         f"utils.graph_descriptors.add_graph_descriptors after loading")
+    columns = {
         "jet_id": table["jet_id"].to_numpy(),
         "flavor": table["flavor"].to_numpy(),
         "bin_code": table["jet_id"].map(jet_bin_code).to_numpy(),
         class_col: row_class,
-        "orc": table[orc_col].to_numpy(dtype=np.float32),
-        "frc": table[frc_col].to_numpy(dtype=np.float32),
-    })
+    }
+    for curvature, col in desc_cols.items():
+        columns[curvature] = table[col].to_numpy(dtype=np.float32)
+    frame = pd.DataFrame(columns)
     keep = (frame["bin_code"] >= 0) & frame["flavor"].isin(flavors)
     return frame[keep]
 
@@ -265,7 +271,7 @@ def collect_binned_distributions(data_dict, graph_types, flavors, cond_var, bins
                     "used": cell_ok[(flavor, label)],
                 })
 
-        node_frame = binned_frame(nodes, "cls", node_classes(nodes), "orc_curvature","frc_curvature", jet_bin_code, flavors)
+        node_frame = binned_frame(nodes, "cls", node_classes(nodes), NODE_DESC_COLS, jet_bin_code, flavors)
         fill_cells(data_binned[graph_type], node_frame, "cls", NODE_TAGS, "all", bin_labels,
                    cell_ok, keep_ids)
         del node_frame
@@ -279,7 +285,7 @@ def collect_binned_distributions(data_dict, graph_types, flavors, cond_var, bins
         n_unmatched = int((edge_type < 0).sum())
         del src_vertex, dst_vertex
 
-        edge_frame = binned_frame(edges, "etype", edge_type, "orc_edge_curvature", "frc_edge_curvature", jet_bin_code, flavors)
+        edge_frame = binned_frame(edges, "etype", edge_type, EDGE_DESC_COLS, jet_bin_code, flavors)
         fill_cells(data_binned[graph_type], edge_frame, "etype", EDGE_TAGS, "alle", bin_labels,
                    cell_ok, keep_ids)
         del edge_frame
@@ -413,3 +419,4 @@ def compute_binned_w1_tables(data_binned, graph_types, flavors, cond_var, bins):
                                              MIN_VALUES_PER_W1))
 
     return pd.DataFrame(node_rows), pd.DataFrame(edge_rows)
+

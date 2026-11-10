@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import wasserstein_distance
 
-from experiments.qm9.config import AGGREGATIONS, ALL_CONCAT,CURVATURES, EDGE_SPECS,EDGE_SUBSETS,JOINT_COND, MIN_MOLS_PER_BIN, MIN_VALUES_PER_DIST,NODE_COMPARISONS,NODE_SPECS,NODE_SUBSETS, SENS_ONLY_COMPARISONS,SKIP_SENSITIVITY,SUBSET_PAIRS, dist_key
+from experiments.qm9.config import AGGREGATIONS, ALL_CONCAT,CURVATURES, EDGE_DESC_COLS, EDGE_SPECS,EDGE_SUBSETS, NODE_DESC_COLS,JOINT_COND, MIN_MOLS_PER_BIN, MIN_VALUES_PER_DIST,NODE_COMPARISONS,NODE_SPECS,NODE_SUBSETS, SENS_ONLY_COMPARISONS,SKIP_SENSITIVITY,SUBSET_PAIRS, dist_key
 from utils.binning import bin_labels_of, bin_series, joint_bin_labels, joint_bin_series
 
 EMPTY_VALUES = np.empty(0, dtype=np.float64)
@@ -118,18 +118,23 @@ def edge_subset_masks(edges):
     }
 
 
-def fill_subset(cell, subset, rows, orc_col, frc_col, means_only=False, keep_ids=False):
+def fill_subset(cell, subset, rows, desc_cols, means_only=False, keep_ids=False):
     """
-    Store the distributions of one subset in one bin, in place: every ORC and FRC value, and one mean per molecule of each.
+    Store the distributions of one subset in one bin, in place: every value of every descriptor, and one mean per molecule of each.
      With keep_ids, the molecule id of every value is stored next to it (<subset>_ids, <subset>_ids_mean)
     so the bootstrap can resample by molecule.
 
     :param cell: data_binned[graph][bin]
     :param rows: node or edge rows of this subset and bin
+    :param desc_cols: {descriptor: column in rows}, NODE_DESC_COLS or EDGE_DESC_COLS
     :param means_only: store only the per-molecule means
     """
-    mol_means = rows.groupby("mol_id")[[orc_col, frc_col]].mean()
-    for curvature, col in (("orc", orc_col), ("frc", frc_col)):
+    missing = [col for col in desc_cols.values() if col not in rows.columns]
+    if missing:
+        raise SystemExit(f"FATAL: columns {missing} missing; call "
+                         f"utils.graph_descriptors.add_graph_descriptors after loading")
+    mol_means = rows.groupby("mol_id")[list(desc_cols.values())].mean()
+    for curvature, col in desc_cols.items():
         if not means_only:
             cell[dist_key(subset, curvature, "union")] = rows[col].to_numpy(dtype=np.float64)
         cell[dist_key(subset, curvature, "per_mol_mean")] = mol_means[col].to_numpy(dtype=np.float64)
@@ -203,7 +208,7 @@ def edges_with_endpoints(nodes, edges, mol_bin):
     return edge_rows.dropna(subset=["src_is_hydrogen", "dst_is_hydrogen"])
 
 
-def fill_subsets(graph_cells, rows, masks, subsets, bin_labels, bin_ok, orc_col, frc_col,keep_ids):
+def fill_subsets(graph_cells, rows, masks, subsets, bin_labels, bin_ok, desc_cols, keep_ids):
     """
     Fill every subset of every usable bin of one construction
     """
@@ -214,7 +219,7 @@ def fill_subsets(graph_cells, rows, masks, subsets, bin_labels, bin_ok, orc_col,
         for subset in subsets:
             # The all-atom / all-edge subsets store only their means unless ALL_CONCAT
             means_only = subset in SENS_ONLY_COMPARISONS and not ALL_CONCAT
-            fill_subset(graph_cells[label], subset, rows[masks[subset] & in_bin], orc_col, frc_col, means_only=means_only, keep_ids=keep_ids)
+            fill_subset(graph_cells[label], subset, rows[masks[subset] & in_bin], desc_cols, means_only=means_only, keep_ids=keep_ids)
 
 
 def collect_binned_distributions(data_dict, graph_types, cond_var, bins, min_mols=MIN_MOLS_PER_BIN, keep_ids=False):
@@ -255,12 +260,12 @@ def collect_binned_distributions(data_dict, graph_types, cond_var, bins, min_mol
         mols_per_bin_rows.extend(table_rows)
 
         binned_nodes = nodes[nodes["bin"].notna()]
-        fill_subsets(data_binned[graph_type], binned_nodes, node_subset_masks(binned_nodes), NODE_SUBSETS, bin_labels, bin_ok, "orc_curvature", "frc_curvature", keep_ids)
+        fill_subsets(data_binned[graph_type], binned_nodes, node_subset_masks(binned_nodes), NODE_SUBSETS, bin_labels, bin_ok, NODE_DESC_COLS, keep_ids)
 
         if edges.empty:
             continue
         edge_rows = edges_with_endpoints(nodes, edges, mol_bin)
-        fill_subsets(data_binned[graph_type], edge_rows, edge_subset_masks(edge_rows), EDGE_SUBSETS, bin_labels, bin_ok, "orc_edge_curvature", "frc_edge_curvature", keep_ids)
+        fill_subsets(data_binned[graph_type], edge_rows, edge_subset_masks(edge_rows), EDGE_SUBSETS, bin_labels, bin_ok, EDGE_DESC_COLS, keep_ids)
 
     return data_binned, pd.DataFrame(mols_per_bin_rows)
 
@@ -363,3 +368,4 @@ def analyze_across_construction(data_dict, graph_types):
     """
     data_binned, _ = collect_binned_distributions(data_dict, graph_types, None, None, min_mols=0)
     return compute_binned_w1_tables(data_binned, graph_types, None, None, across_graphs=not SKIP_SENSITIVITY)
+

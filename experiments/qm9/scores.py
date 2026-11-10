@@ -10,7 +10,7 @@ from experiments.qm9.constructions import DUPLICATE_GRAPHS, STYLING
 from experiments.qm9.distributions import collect_binned_distributions,compute_binned_w1_tables, cond_bin_labels
 from plotting.conditioned import plot_scores_vs_bin
 from utils.binning import order_bins
-from utils.tables import SCORE_KEYS,SENS_COL,SEP_COL, SLICE_KEYS,apply_value_guard, save_csv, upper_names
+from utils.tables import SCORE_KEYS,SENS_COL,SEP_COL, SLICE_KEYS,apply_value_guard, preserved_sep, save_csv, upper_names
 
 
 def scores_by_graph(rows, score_col, graph_names):
@@ -522,3 +522,4 @@ def run_conditioned_scores(data_dict, graph_types, cond_var, bins, save_dir):
 
     print(f"{cond_var} finished in {(time.time() - pass_start) / 60:.1f} min ", flush=True)
     return weighted
+

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from experiments.jetset.config import COND_GRAPH_TYPES, DEFAULT_KMAX,DEFAULT_QUANTILE,DEFAULT_RADIUS, FAMILY_COLOR_IDX, FAMILY_ORDER, GRAPH_TYPES, KT_PATTERN,P_VALUES, PAIR_COLOR_IDX, PAIR_TEXT
 from plotting.common import LINESTYLES, MARKERS, GraphStyling
-from src.graphs import ALL_GRAPH_TYPES
+from src.jetset_graphs import ALL_GRAPH_TYPES
 from utils.duplicates import duplicate_pairs_from_values, register_duplicate_pairs
 
 # Constructions identical to another one (for Laman and Unique-k, p = 0 and
@@ -234,4 +234,5 @@ def duplicate_free(graph_types):
         if graph_type.lower() not in DUPLICATE_GRAPHS:
             kept.append(graph_type)
     return kept
+
 

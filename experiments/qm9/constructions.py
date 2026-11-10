@@ -11,7 +11,6 @@ TAB20 = plt.get_cmap("tab20")
 COLOR_ORDER = list(range(0, 20, 2)) + list(range(1, 20, 2))
 GRAPH_STYLES = {}
 
-STYLING = GraphStyling(graph_style, graph_label, graph_sort_key)
 
 def style_for_index(index):
     """
@@ -96,4 +95,9 @@ def register_duplicates_from_values(data_dict, graph_types):
     """
     pairs = duplicate_pairs_from_values(data_dict, graph_types, "mol_id")
     register_duplicate_pairs(DUPLICATE_GRAPHS, pairs, "same ORC and FRC on every atom", pick_drop)
+
+
+
+# Defined after the three functions it wraps.
+STYLING = GraphStyling(graph_style, graph_label, graph_sort_key)
 

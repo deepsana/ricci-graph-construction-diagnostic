@@ -67,7 +67,7 @@ def _endpoint_vertices(nodes, edges):
     '''
     Gets truth_vertex_idx for edge src/dst nodes without copying the edge table,
     replacing the old (jet_id, node_id) left-merge. Missing nodes map to -1
-    (matching former NaN "not PV" behavior).
+    (so classify_edges treats them as unmatched).
     Falls back to the merge if keys aren't unique or indices are negative
 
     :param nodes: node table with jet_id, node_id, truth_vertex_idx
@@ -186,12 +186,11 @@ def _build_distributions(data_dict, graph_types, flavors):
         if edges.empty:
             continue
 
-        # edges: endpoint vertex types by lookup, then the same three classes
-        # as before: pvpv, svsv (both endpoints not PV, incl. unmatched), pvsv
+        # edges: same rule as the nodes (classify_edges). An edge with an
+        # unmatched endpoint (truth_vertex_idx < 0) is in none of the three.
         src_v, dst_v = _endpoint_vertices(nodes, edges)
-        s_pv = src_v == 0
-        d_pv = dst_v == 0
-        etype = {"pvpv": s_pv & d_pv, "svsv": ~s_pv & ~d_pv, "pvsv": s_pv ^ d_pv}
+        edge_type = classify_edges(src_v, dst_v)
+        etype = {"pvpv": edge_type == 0, "svsv": edge_type == 1, "pvsv": edge_type == 2}
 
         efl = edges["flavor"].to_numpy()
         ejid = edges["jet_id"].to_numpy()

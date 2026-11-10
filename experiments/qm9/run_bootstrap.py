@@ -3,10 +3,11 @@ import time
 import numpy as np
 import pandas as pd
 
-from experiments.qm9.config import EDGE_SPECS, GRAPH_TYPES, HFRAC_BINS,JOINT_COND, MAX_FILES,MIN_MOLS_PER_BIN, MIN_VALUES_PER_DIST, MULT_BINS, N_WORKERS, NH_BINS, NHEAVY_BINS, NODE_SPECS, OUT_DIR, SEP_POOL, SHARD_GLOB, SUBSET_PAIRS
+from experiments.qm9.config import CURVATURES, EDGE_SPECS, GRAPH_TYPES, HFRAC_BINS,JOINT_COND, MAX_FILES,MIN_MOLS_PER_BIN, MIN_VALUES_PER_DIST, MULT_BINS, N_WORKERS, NH_BINS, NHEAVY_BINS, NODE_SPECS, OUT_DIR, SEP_POOL, SHARD_GLOB, SUBSET_PAIRS
 from experiments.qm9.distributions import collect_binned_distributions, cond_bin_labels, per_mol_bin
 from experiments.qm9.loading import load_qm9
 from utils import bootstrap as bs
+from utils.graph_descriptors import DESCRIPTORS, add_graph_descriptors
 from utils.tables import SCORE_KEYS, SEP_COL
 
 N_BOOT = 500
@@ -136,9 +137,12 @@ def main():
         print("[cfg] GRAPHS is set: trial run, the score CSVs are left alone", flush=True)
     if not graphs:
         raise SystemExit("no construction to bootstrap; check GRAPHS against GRAPH_TYPES")
-    print(f"[cfg] B={N_BOOT}, seed={SEED}, {len(graphs)} constructions, passes={PASSES}", flush=True)
+    print(f"[cfg] B={N_BOOT}, seed={SEED}, {len(graphs)} constructions, passes={PASSES}, descriptors={CURVATURES}", flush=True)
 
     data_dict = load_qm9(graphs, SHARD_GLOB, N_WORKERS, MAX_FILES)
+    # Degree, triangle and clustering columns, as in run_scores.py.
+    if any(descriptor in CURVATURES for descriptor in DESCRIPTORS):
+        data_dict = add_graph_descriptors(data_dict, graphs, "mol_id")
     graphs = bs.select_graphs(graphs, data_dict)
     print(f"[load] {len(graphs)} constructions in {time.time() - start:.0f} s", flush=True)
 
@@ -177,4 +181,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
