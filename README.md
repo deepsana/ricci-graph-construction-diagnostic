@@ -35,6 +35,32 @@ python -m experiments.jetset.run_scores
 python -m experiments.jetset.run_bootstrap
 ```
 
+## Permutation null (needs step 2)
+Shuffles the population label among point clouds in the same bin. 
+On the complete graph the conditioned score should equal its null.
+```
+python -m experiments.qm9.run_construction_null --check-share <qm9 OUT_DIR>
+python -m experiments.jetset.run_construction_null --check-share <jetset OUT_DIR>
+```
+
+## QM9 induced size confound (needs step 2)
+```
+python -m experiments.qm9.run_size_confound --steepness 0
+python -m experiments.qm9.run_size_confound --steepness 0.25
+python -m experiments.qm9.run_size_confound --steepness 0.5
+python -m experiments.qm9.run_construction_null --keep-table <out_dir>/keep_table.csv --check-share <out_dir>   # once per steepness
+python -m experiments.qm9.run_size_confound --summary-only --compare \
+    <qm9 OUT_DIR> <R>/size-confound-steep0 <R>/size-confound-steep0.25 <R>/size-confound
+```
+`<R>` is `<RESULTS_ROOT>/qm9`. 
+Steepness 0.5 writes to `size-confound` and any other value to `size-confound-steep<value>`.
+
+
+##JetSet secondary-vertex recovery # this step needs permutatation null to have been ran
+
+python -m experiments.jetset.run_vertex_recovery --quick-look  # vertex counts only for one construction
+python -m experiments.jetset.run_vertex_recovery # every construction
+ python -m experiments.jetset.run_vertex_recovery --separation <RESULTS_ROOT>/jetset/construction-null/construction_null_n_x_n_sv.csv 
 
 ## What the scores are
 
